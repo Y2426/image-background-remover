@@ -63,7 +63,20 @@ Cache-Control: no-store
 
 ## Cloudflare Notes
 
-The app is structured for a Cloudflare Pages deployment with a server-side API route. Configure `REMOVE_BG_API_KEY` as a Cloudflare environment variable. For production Cloudflare hosting, use the current Next.js-on-Cloudflare adapter supported by your Cloudflare Pages setup.
+The app is structured for Cloudflare Pages native GitHub integration:
+
+- Next.js is exported as static files into `out`.
+- The background-removal API runs as a Cloudflare Pages Function at `functions/api/remove-background.ts`.
+- Configure `REMOVE_BG_API_KEY` as a Cloudflare Pages environment variable.
+
+Use these Pages build settings:
+
+```text
+Framework preset: Next.js (Static HTML Export)
+Build command: NEXT_OUTPUT=export NODE_OPTIONS=--max-old-space-size=2048 npm run pages:build
+Build output directory: out
+Production branch: main
+```
 
 Images are not stored by this application. Uploaded files are validated, proxied to remove.bg, and returned to the browser during the request lifecycle.
 
