@@ -6,6 +6,13 @@ export const dynamic = "force-dynamic";
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
+type RemoveBgErrorPayload = {
+  errors?: Array<{
+    title?: string;
+    code?: string;
+  }>;
+};
+
 function jsonError(message: string, status: number) {
   return NextResponse.json(
     { error: message },
@@ -16,6 +23,46 @@ function jsonError(message: string, status: number) {
       },
     },
   );
+}
+
+function stripHtml(value: string) {
+  return value
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&#x20;/g, " ")
+    .replace(/&amp;/g, "&")
+    .trim();
+}
+
+function friendlyRemoveBgError(detail: string, status: number) {
+  if (status === 402) {
+    return "Background removal quota is exhausted.";
+  }
+
+  try {
+    const payload = JSON.parse(detail) as RemoveBgErrorPayload;
+    const firstError = payload.errors?.[0];
+
+    if (firstError?.code === "unknown_foreground") {
+      return "We couldn't detect a clear subject in this image. Try a photo with a person, product, animal, car, or object in front of a distinct background.";
+    }
+
+    if (firstError?.title) {
+      return stripHtml(firstError.title);
+    }
+  } catch {
+    // The provider sometimes returns plain text; fall through to a generic message.
+  }
+
+  if (status === 400) {
+    return "We couldn't remove the background. Try another image with a clearer foreground subject.";
+  }
+
+  if (status === 429) {
+    return "Too many requests. Please wait a moment and try again.";
+  }
+
+  return "We couldn't remove the background. Please try another image.";
 }
 
 export async function POST(request: NextRequest) {
@@ -67,12 +114,7 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const detail = await response.text();
-      const message =
-        response.status === 402
-          ? "Background removal quota is exhausted."
-          : detail || "We couldn't remove the background. Please try another image.";
-
-      return jsonError(message, response.status);
+      return jsonError(friendlyRemoveBgError(detail, response.status), response.status);
     }
 
     return new NextResponse(response.body, {
