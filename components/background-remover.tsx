@@ -47,6 +47,8 @@ function formatBytes(size: number) {
 
 export function BackgroundRemover() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const originalUrlRef = useRef("");
+  const resultUrlRef = useRef("");
   const [file, setFile] = useState<File | null>(null);
   const [originalUrl, setOriginalUrl] = useState("");
   const [resultUrl, setResultUrl] = useState("");
@@ -59,10 +61,10 @@ export function BackgroundRemover() {
 
   useEffect(() => {
     return () => {
-      if (originalUrl) URL.revokeObjectURL(originalUrl);
-      if (resultUrl) URL.revokeObjectURL(resultUrl);
+      if (originalUrlRef.current) URL.revokeObjectURL(originalUrlRef.current);
+      if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current);
     };
-  }, [originalUrl, resultUrl]);
+  }, []);
 
   const previewBackground = useMemo(() => {
     if (backgroundMode === "white") return "#ffffff";
@@ -72,7 +74,8 @@ export function BackgroundRemover() {
   }, [backgroundMode, customColor]);
 
   function resetResult() {
-    if (resultUrl) URL.revokeObjectURL(resultUrl);
+    if (resultUrlRef.current) URL.revokeObjectURL(resultUrlRef.current);
+    resultUrlRef.current = "";
     setResultUrl("");
     setCompare(50);
   }
@@ -85,10 +88,12 @@ export function BackgroundRemover() {
       return;
     }
 
-    if (originalUrl) URL.revokeObjectURL(originalUrl);
+    if (originalUrlRef.current) URL.revokeObjectURL(originalUrlRef.current);
     resetResult();
+    const nextOriginalUrl = URL.createObjectURL(nextFile);
+    originalUrlRef.current = nextOriginalUrl;
     setFile(nextFile);
-    setOriginalUrl(URL.createObjectURL(nextFile));
+    setOriginalUrl(nextOriginalUrl);
   }
 
   function handleInputChange(event: ChangeEvent<HTMLInputElement>) {
@@ -126,7 +131,9 @@ export function BackgroundRemover() {
       }
 
       const blob = await response.blob();
-      setResultUrl(URL.createObjectURL(blob));
+      const nextResultUrl = URL.createObjectURL(blob);
+      resultUrlRef.current = nextResultUrl;
+      setResultUrl(nextResultUrl);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "We couldn't remove the background. Please try another image.");
     } finally {
